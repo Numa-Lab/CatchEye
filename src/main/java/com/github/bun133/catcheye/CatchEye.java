@@ -31,7 +31,8 @@ public class CatchEye {
         registerNetwork();
     }
 
-    public static String target = "";
+    public static String target_name = "";
+    public static Vector3d lastLocation = null;
 
     @SubscribeEvent
     public void onTick(TickEvent.RenderTickEvent e) {
@@ -47,22 +48,30 @@ public class CatchEye {
             return;
         }
 
-        Optional<? extends PlayerEntity> target = clientPlayer.world.getPlayers().stream().filter((p) -> p.getGameProfile().getName().equals(CatchEye.target)).findFirst();
+        double partialTicks = e.renderTickTime;
+        Optional<? extends PlayerEntity> target = clientPlayer.world.getPlayers().stream().filter((p) -> p.getGameProfile().getName().equals(CatchEye.target_name)).findFirst();
         if (!target.isPresent()) {
+            if (target_name.isEmpty()) return;
+
+            if (lastLocation != null) {
+                lookAt(lastLocation, lastLocation, clientPlayer, partialTicks);
+            }
             return;
         }
 
         PlayerEntity real_target = target.get();
+        lastLocation = new Vector3d(real_target.lastTickPosX, real_target.lastTickPosY, real_target.lastTickPosZ);
+        lookAt(lastLocation, real_target.getPositionVec(), clientPlayer, partialTicks);
+    }
 
-        double partialTicks = e.renderTickTime;
-
+    private void lookAt(Vector3d lastTickPos, Vector3d nowPos, ClientPlayerEntity clientPlayer, double partialTicks) {
         double deltaMeX = clientPlayer.getPosX() - clientPlayer.lastTickPosX;
         double deltaMeY = clientPlayer.getPosY() - clientPlayer.lastTickPosY;
         double deltaMeZ = clientPlayer.getPosZ() - clientPlayer.lastTickPosZ;
 
-        double youX = MathHelper.lerp(partialTicks, real_target.lastTickPosX + deltaMeX, real_target.getPosX());
-        double youY = MathHelper.lerp(partialTicks, real_target.lastTickPosY + deltaMeY, real_target.getPosY());
-        double youZ = MathHelper.lerp(partialTicks, real_target.lastTickPosZ + deltaMeZ, real_target.getPosZ());
+        double youX = MathHelper.lerp(partialTicks, lastTickPos.getX() + deltaMeX, nowPos.getX());
+        double youY = MathHelper.lerp(partialTicks, lastTickPos.getY() + deltaMeY, nowPos.getY());
+        double youZ = MathHelper.lerp(partialTicks, lastTickPos.getZ() + deltaMeZ, nowPos.getZ());
 
         clientPlayer.lookAt(EntityAnchorArgument.Type.FEET, new Vector3d(youX, youY, youZ));
     }
@@ -72,11 +81,14 @@ public class CatchEye {
     }
 
     public static void handle(PacketContainer message, Supplier<NetworkEvent.Context> ctx) {
-        System.out.println("On Packet");
         if (message == null || message.getTarget() == null)
             return;
 
-        CatchEye.target = message.getTarget();
+        CatchEye.target_name = message.getTarget();
+        Vector3d position = message.getPosition();
+        if (position != null && !target_name.isEmpty()) {
+            CatchEye.lastLocation = position;
+        }
         CatchEye.LOGGER.info("Update target: " + message.getTarget());
         ctx.get().setPacketHandled(true);
     }
