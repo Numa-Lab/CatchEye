@@ -4,6 +4,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.player.ClientPlayerEntity;
 import net.minecraft.command.arguments.EntityAnchorArgument;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.util.Util;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.vector.Vector3d;
 import net.minecraftforge.common.MinecraftForge;
@@ -32,7 +33,26 @@ public class CatchEye {
     }
 
     public static String target_name = "";
+    public static Vector3d nowLocation = null;
     public static Vector3d lastLocation = null;
+    private static Long lastTime = null;
+    private static int lastTicks = 0;
+    public static final double one_tick_length_in_mill = 1000.0 / 20.0;
+
+    public static void pushLocation(Vector3d newLocation, int ticks) {
+        lastLocation = nowLocation;
+        nowLocation = newLocation;
+        lastTime = Util.milliTime();
+        lastTicks = ticks;
+    }
+
+    public static double getPartial() {
+        if (lastTime == null) {
+            return 0.0; // 初期化前は0.0ということで
+        }
+        double deltaTick = (Util.milliTime() - lastTime) / one_tick_length_in_mill;
+        return deltaTick / (double) lastTicks;
+    }
 
     @SubscribeEvent
     public void onTick(TickEvent.RenderTickEvent e) {
@@ -48,20 +68,27 @@ public class CatchEye {
             return;
         }
 
-        double partialTicks = e.renderTickTime;
+        double partialTicks = getPartial();
         Optional<? extends PlayerEntity> target = clientPlayer.world.getPlayers().stream().filter((p) -> p.getGameProfile().getName().equals(CatchEye.target_name)).findFirst();
         if (!target.isPresent()) {
             if (target_name.isEmpty()) return;
 
-            if (lastLocation != null) {
-                lookAt(lastLocation, lastLocation, clientPlayer, partialTicks);
+            if (nowLocation != null) {
+                clientPlayer.lookAt(EntityAnchorArgument.Type.FEET, new Vector3d(
+                        MathHelper.lerp(partialTicks, lastLocation.x, nowLocation.x),
+                        MathHelper.lerp(partialTicks, lastLocation.y, nowLocation.y),
+                        MathHelper.lerp(partialTicks, lastLocation.z, nowLocation.z)
+                ));
+//                lookAt(lastLocation, nowLocation, clientPlayer, partialTicks / 20.0);
             }
             return;
         }
 
+        partialTicks = e.renderTickTime;
+
         PlayerEntity real_target = target.get();
-        lastLocation = new Vector3d(real_target.lastTickPosX, real_target.lastTickPosY, real_target.lastTickPosZ);
-        lookAt(lastLocation, real_target.getPositionVec(), clientPlayer, partialTicks);
+        pushLocation(new Vector3d(real_target.lastTickPosX, real_target.lastTickPosY, real_target.lastTickPosZ), 1);
+        lookAt(nowLocation, real_target.getPositionVec(), clientPlayer, partialTicks);
     }
 
     private void lookAt(Vector3d lastTickPos, Vector3d nowPos, ClientPlayerEntity clientPlayer, double partialTicks) {
@@ -87,7 +114,7 @@ public class CatchEye {
         CatchEye.target_name = message.getTarget();
         Vector3d position = message.getPosition();
         if (position != null && !target_name.isEmpty()) {
-            CatchEye.lastLocation = position;
+            pushLocation(position, 20);
         }
         CatchEye.LOGGER.info("Update target: " + message.getTarget());
         ctx.get().setPacketHandled(true);
