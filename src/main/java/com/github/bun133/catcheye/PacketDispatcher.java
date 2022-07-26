@@ -26,28 +26,36 @@ public class PacketDispatcher {
     private static final Supplier<Void> register = Suppliers.memoize(() -> {
         PacketDispatcher.channel.registerMessage(
                 0,
-                PacketContainer.class,
-                PacketContainer::encode,
-                PacketContainer::decode,
-                PacketDispatcher::handle
+                UpdatePotision.class,
+                UpdatePotision::encode,
+                UpdatePotision::decode,
+                PacketDispatcher::handleUpdate
+        );
+
+        PacketDispatcher.channel.registerMessage(
+                1,
+                HelloPacket.class,
+                HelloPacket::encode,
+                HelloPacket::decode,
+                PacketDispatcher::handleHello
         );
         return null;
     });
 
-    private static BiConsumer<PacketContainer, Supplier<NetworkEvent.Context>> clientHandler;
-    private static BiConsumer<PacketContainer, Supplier<NetworkEvent.Context>> serverHandler;
+    private static BiConsumer<UpdatePotision, Supplier<NetworkEvent.Context>> clientHandler;
+    private static BiConsumer<UpdatePotision, Supplier<NetworkEvent.Context>> serverHandler;
 
-    public static void registerClient(BiConsumer<PacketContainer, Supplier<NetworkEvent.Context>> handler) {
+    public static void registerClient(BiConsumer<UpdatePotision, Supplier<NetworkEvent.Context>> handler) {
         register.get();
         clientHandler = handler;
     }
 
-    public static void registerServer(BiConsumer<PacketContainer, Supplier<NetworkEvent.Context>> handler) {
+    public static void registerServer(BiConsumer<UpdatePotision, Supplier<NetworkEvent.Context>> handler) {
         register.get();
         serverHandler = handler;
     }
 
-    private static void handle(PacketContainer message, Supplier<NetworkEvent.Context> ctx) {
+    private static void handleUpdate(UpdatePotision message, Supplier<NetworkEvent.Context> ctx) {
         if (ctx.get().getDirection().getReceptionSide().isClient()) {
             if (clientHandler != null)
                 clientHandler.accept(message, ctx);
@@ -57,4 +65,7 @@ public class PacketDispatcher {
         }
     }
 
+    private static void handleHello(HelloPacket message, Supplier<NetworkEvent.Context> ctx) {
+        // Not Reachable
+    }
 }

@@ -7,6 +7,7 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.Util;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.vector.Vector3d;
+import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -21,7 +22,8 @@ import java.util.function.Supplier;
 // The value here should match an entry in the META-INF/mods.toml file
 @Mod("catcheye")
 public class CatchEye {
-    static String MODID = "catcheye";
+    static final String MODID = "catcheye";
+    static final String JOIN_MAGIC = "joined!";
 
     // Directly reference a log4j logger.
     static final Logger LOGGER = LogManager.getLogger();
@@ -107,7 +109,7 @@ public class CatchEye {
         PacketDispatcher.registerClient(CatchEye::handle);
     }
 
-    public static void handle(PacketContainer message, Supplier<NetworkEvent.Context> ctx) {
+    public static void handle(UpdatePotision message, Supplier<NetworkEvent.Context> ctx) {
         if (message == null || message.getTarget() == null)
             return;
 
@@ -118,5 +120,14 @@ public class CatchEye {
         }
         CatchEye.LOGGER.info("Update target: " + message.getTarget());
         ctx.get().setPacketHandled(true);
+    }
+
+    @SubscribeEvent
+    public void onJoin(ClientPlayerNetworkEvent.LoggedInEvent e) {
+        sendJoinPacket();
+    }
+
+    public static void sendJoinPacket() {
+        PacketDispatcher.channel.sendToServer(new HelloPacket(JOIN_MAGIC));
     }
 }

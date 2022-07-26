@@ -4,11 +4,11 @@ import net.minecraft.network.PacketBuffer;
 import net.minecraft.util.math.vector.Vector3d;
 
 
-public class PacketContainer {
+public class UpdatePotision {
     private final String target;
     private final Vector3d position;
 
-    public PacketContainer(String target, Vector3d position) {
+    public UpdatePotision(String target, Vector3d position) {
         this.target = target;
         this.position = position;
     }
@@ -21,13 +21,13 @@ public class PacketContainer {
         return position;
     }
 
-    public static void encode(PacketContainer message, PacketBuffer buffer) {
+    public static void encode(UpdatePotision message, PacketBuffer buffer) {
         buffer.writeString(DataSerializer.encode(message));
     }
 
-    public static PacketContainer decode(PacketBuffer buffer) {
+    public static UpdatePotision decode(PacketBuffer buffer) {
         String json = buffer.readString();
-        PacketContainer data = DataSerializer.decode(json, PacketContainer.class);
+        UpdatePotision data = DataSerializer.decode(json, UpdatePotision.class);
         if (data == null) {
             CatchEye.LOGGER.warn("Failed to decode packet");
         }
